@@ -1,6 +1,6 @@
 # AGENTS.md — ArbitMint
 
-Testnet-only arbitrage orchestration MVP. It combines a real Uniswap v4 swap, a simulated external venue, and sandbox funding. Never represent estimates, simulator results, or operator assertions as verified real trading profit.
+ArbitMint is a no-trade arbitrage research MVP. The UI is paper mode: optional wallet connection is informational on Unichain Sepolia, while market estimates use read-only Binance public data and a read-only Unichain Mainnet Uniswap v4 quote. The user flow must never spend tokens or submit transactions. Never represent estimates, simulator results, or operator assertions as verified real trading profit.
 
 Read [`docs/PRD.md`](docs/PRD.md) for full requirements. This file contains non-obvious constraints and project commands.
 
@@ -8,7 +8,7 @@ Read [`docs/PRD.md`](docs/PRD.md) for full requirements. This file contains non-
 
 - `contracts/`: Solidity (Foundry), OpenZeppelin, Uniswap v4. Arbitrageur and hook.
 - `backend/`: Python 3.12+, FastAPI, web3.py, SQLAlchemy, PostgreSQL.
-- `frontend/`: Next.js (App Router), TypeScript, wagmi, and viem.
+- `frontend/`: Next.js (App Router), TypeScript, optional EIP-1193 wallet access, and WalletConnect.
 - Store monetary amounts in integer base units. Never use floating-point arithmetic for money or claims.
 - Store timestamps in UTC.
 
@@ -24,7 +24,9 @@ cd frontend && pnpm install && pnpm typecheck && pnpm lint && pnpm test
 
 ## Hard rules
 
-- Default to paper, sandbox, and testnet operation. Do not use mainnet, real funds, or a real centralized exchange.
+- The product never executes CEX or DEX trades and never uses real funds. Unichain Mainnet access is restricted to read-only quote calls; wallet context remains Unichain Sepolia and informational only.
+- The frontend paper simulator must not request signatures, token approvals, or send transactions. Wallet connection is optional and must not gate local simulation.
+- Clearly distinguish live read-only market estimates from simulated results and verified on-chain facts. Never fall back to locally generated prices when a quote fails.
 - Persist `CREATED` and each subsequent state before any external side effect. Require idempotency keys for every mutating operation.
 - Maintain the contract invariant `USDC balance >= totalClaimable` after every credit. Claims must reduce both the user's claimable balance and `totalClaimable`.
 - The hook must not custody funds or reenter Arbitrageur. Test the actual caller identity (router versus direct call); do not assume it.

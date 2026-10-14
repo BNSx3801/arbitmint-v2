@@ -3,20 +3,29 @@ from __future__ import annotations
 import hashlib
 import os
 import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Callable, Protocol
+from typing import Any, ClassVar, Protocol, cast
 
+from eth_account.signers.local import LocalAccount
+from hexbytes import HexBytes
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
-
-from arbitmint.models import Run, RunTransition, SideEffectIntent, SimulatorRecord
-from arbitmint.models import TransactionRecord
-from arbitmint.state_machine import InvalidTransition, RunState
 from web3 import HTTPProvider, Web3
 from web3.contract.contract import Contract
 from web3.exceptions import TransactionNotFound
+from web3.types import TxParams
+
+from arbitmint.models import (
+    Run,
+    RunTransition,
+    SideEffectIntent,
+    SimulatorRecord,
+    TransactionRecord,
+)
+from arbitmint.state_machine import InvalidTransition, RunState
 
 
 class SettlementError(RuntimeError):
@@ -58,7 +67,7 @@ class SettlementGateway(Protocol):
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class SettlementCoordinator:
@@ -82,7 +91,8 @@ class SettlementCoordinator:
             proceeds = int(simulator.net_proceeds)
             if proceeds < 0 or proceeds > 2**128 - 1:
                 raise SettlementError("simulated proceeds are outside contract amount bounds")
-            request = {"chain_run_id": run.chain_run_id, "proceeds": proceeds}
+            chain_run_id = run.chain_run_id
+            request = {"chain_run_id": chain_run_id, "proceeds": proceeds}
             intent = session.scalar(
                 select(SideEffectIntent)
                 .where(SideEffectIntent.run_id == run_id, SideEffectIntent.operation == "SETTLE")
@@ -117,7 +127,7 @@ class SettlementCoordinator:
 
         try:
             evidence = self._gateway.settle_run(
-                chain_run_id=request["chain_run_id"],
+                chain_run_id=chain_run_id,
                 proceeds=proceeds,
                 idempotency_key=intent_key,
                 existing_transaction_hash=existing_tx_hash,
@@ -293,7 +303,7 @@ def _evidence(result: dict[str, object] | None) -> SettlementEvidence:
 class Web3SettlementGateway:
     """Submits and confirms Arbitrageur.settleRun on Unichain Sepolia."""
 
-    ARBITRAGEUR_ABI: list[dict[str, object]] = [
+    ARBITRAGEUR_ABI: ClassVar[list[dict[str, object]]] = [
         {
             "type": "function",
             "name": "settleRun",
@@ -332,7 +342,7 @@ class Web3SettlementGateway:
             ],
         },
     ]
-    ERC20_ABI: list[dict[str, object]] = [
+    ERC20_ABI: ClassVar[list[dict[str, object]]] = [
         {
             "type": "function",
             "name": "allowance",
@@ -365,7 +375,7 @@ class Web3SettlementGateway:
         web3: Web3,
         arbitrageur: Contract,
         usdc: Contract,
-        operator_account: object,
+        operator_account: LocalAccount,
         confirmation_depth: int = 2,
         receipt_timeout: int = 120,
     ) -> None:
@@ -414,18 +424,19 @@ class Web3SettlementGateway:
         arbitrageur_address = Web3.to_checksum_address(self.arbitrageur.address)
         receipt = None
         if existing_transaction_hash is not None:
+            existing_hash = HexBytes(existing_transaction_hash)
             try:
-                receipt = self.web3.eth.get_transaction_receipt(existing_transaction_hash)
+                receipt = self.web3.eth.get_transaction_receipt(existing_hash)
             except TransactionNotFound:
                 try:
-                    self.web3.eth.get_transaction(existing_transaction_hash)
+                    self.web3.eth.get_transaction(existing_hash)
                 except TransactionNotFound as exc:
                     raise SettlementUncertain(
                         "recorded transaction is not visible; refusing to submit a duplicate"
                     ) from exc
                 try:
                     receipt = self.web3.eth.wait_for_transaction_receipt(
-                        existing_transaction_hash, timeout=self.receipt_timeout
+                        existing_hash, timeout=self.receipt_timeout
                     )
                 except TimeoutError as exc:
                     raise TimeoutError("settlement transaction confirmation timed out") from exc
@@ -436,15 +447,18 @@ class Web3SettlementGateway:
             nonce = int(self.web3.eth.get_transaction_count(operator_address, "pending"))
             function = self.arbitrageur.functions.settleRun(chain_run_id, proceeds)
             transaction = function.build_transaction(
-                {
+                cast(
+                    TxParams,
+                    {
                     "from": operator_address,
                     "nonce": nonce,
                     "chainId": 1301,
                     "gas": int(function.estimate_gas({"from": operator_address}) * 120 // 100),
                     "gasPrice": int(self.web3.eth.gas_price),
-                }
+                    },
+                )
             )
-            signed = self.operator.sign_transaction(transaction)
+            signed = self.operator.sign_transaction(cast(Any, transaction))
             tx_hash = Web3.to_hex(signed.hash)
             before_broadcast(tx_hash, nonce)
             try:

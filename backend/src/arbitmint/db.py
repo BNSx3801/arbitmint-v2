@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from sqlalchemy import create_engine
+from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 
@@ -10,8 +10,8 @@ class Base(DeclarativeBase):
     pass
 
 
-def make_engine(database_url: str | None = None):
-    url = database_url or os.getenv("DATABASE_URL", "sqlite:///./arbitmint.db")
+def make_engine(database_url: str | None = None) -> Engine:
+    url = database_url or os.getenv("DATABASE_URL") or "sqlite:///./arbitmint.db"
     options: dict[str, object] = {"pool_pre_ping": True}
     if url.startswith("sqlite:"):
         options["connect_args"] = {"check_same_thread": False}

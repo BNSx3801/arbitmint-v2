@@ -2,11 +2,11 @@
 
 ## PRODUCT REQUIREMENTS DOCUMENT
 
-**Final revised version • v1.0**  
-**Testnet-only MVP | October 14, 2026**
+**Revised implementation baseline • v1.1**
+**Read-only market estimator | October 14, 2026**
 
 **Owner:** Bal Narayan Singh  
-**Status:** Implementation baseline for review
+**Status:** Implementation baseline with paper-simulator direction update
 
 **Core principle:** distinguish on-chain facts, operator actions, estimates, and simulated outcomes.
 
@@ -17,13 +17,19 @@
 **Version:** 1.0 | **Status:** Implementation baseline for review | **Date:** October 14, 2026  
 **Owner:** Bal Narayan Singh
 
-**Purpose:** Define a reproducible, testnet-only ArbitMint MVP. This document supersedes Draft v0.1 when approved. It distinguishes implemented behavior from planned behavior and does not claim live arbitrage profitability.
+**Purpose:** Define a reproducible, no-trade ArbitMint MVP. The product direction update below supersedes older workflow text that describes user-facing funding or transaction submission in the current MVP.
+
+### Product direction update — read-only market estimate flow
+
+The current user-facing MVP is a **no-trade market estimator**. A user selects an eligible asset/USDC pair, enters a hypothetical USDC buy size, and sees estimated P/L from a read-only Uniswap v4 exact-input quote on Unichain Mainnet and Binance public Spot bid depth. Binance fees are assumptions; gas, transfer, withdrawal, bridging, and execution costs are excluded. Wallet connection is optional and informational (address and Unichain Sepolia network only). The frontend must not read token balances, request signatures or approvals, or submit transactions. Recording an estimate creates only a local display snapshot.
+
+Market data is live but read-only; resulting P/L remains an estimate and is not a fill or verified trading profit. Eligible assets require both an active Binance USDC spot market and a complete, verified Uniswap v4 PoolKey. The Solidity contracts and backend execution modules remain separate experimental work and are not connected to this quote flow.
 
 ---
 
 ## 1. Executive summary
 
-ArbitMint is a testnet-only arbitrage orchestration prototype. A user selects a supported asset and Uniswap v4 pool. The system evaluates a candidate trade using pool quotes, a reference-price sanity check, and an explicit cost model. If the opportunity passes configured thresholds, the backend provisions sandbox USDC, initiates a real on-chain v4 swap, and passes the acquired token to a simulated external venue. The simulator returns a recorded hypothetical execution result. The backend then initiates settlement, the contract accounts for returned principal and verified USDC available for claims, and the user may claim credited USDC on-chain.
+ArbitMint is a read-only cross-venue market estimator. In the current user flow, a user selects an eligible asset/USDC pair and hypothetical buy size, then observes estimated P/L from live read-only DEX and CEX data. Wallet connection is optional and read-only. The UI does not move funds or submit transactions. Backend and contract code provide experimental pieces for a separate possible testnet orchestration flow.
 
 The MVP demonstrates reliable orchestration, real testnet contract integration, transparent simulation, and auditable accounting. It does not demonstrate real exchange execution, risk-free arbitrage, guaranteed profits, production-grade custody, or a production-ready funding service.
 
@@ -57,17 +63,18 @@ ArbitMint packages the workflow into a single run with a persistent state machin
 
 ## 3. Goals, non-goals, and success metrics
 
-### Goals
+### Current goals
 
-- **G1.** Complete one reproducible end-to-end testnet run: sandbox funding, confirmed v4 swap, simulated venue sale, settlement, and user claim.
-- **G2.** Replace all placeholders in the execution path with working, tested code.
-- **G3.** Enforce access control, run-state transitions, claim backing, and per-run limits.
-- **G4.** Make the README and UI accurately label testnet, sandbox funding, and simulated venue behavior.
-- **G5.** Deliver reproducible setup instructions, automated tests, a demo recording, and an architecture/trust note.
+- **G1.** Let a user select an eligible asset/USDC pair and hypothetical buy size, then see changing estimated P/L from read-only market sources.
+- **G2.** Make wallet connection optional and informational on Unichain Sepolia; the paper flow must not spend funds, request approvals, or submit transactions.
+- **G3.** Keep estimates distinguishable from fills and verified on-chain facts; do not substitute simulated or stale prices when quote sources fail.
+- **G4.** Deliver reproducible setup instructions and an accurate explanation of the simulation boundaries.
+
+Earlier on-chain orchestration goals below describe experimental/future integration requirements and do not define acceptance for the current no-spend frontend MVP.
 
 ### Non-goals
 
-- Mainnet deployment or use of real user funds.
+- Mainnet transaction submission or use of real user funds. Read-only Unichain Mainnet v4 quote calls are in scope.
 - Real centralized-exchange execution, production custody, or rebalancing.
 - Flash-loan arbitrage, multi-chain routing, EigenLayer integration, or production compliance/KYC.
 - Any guarantee of profit or claim that the MVP proves a profitable trading strategy.
@@ -76,19 +83,26 @@ ArbitMint packages the workflow into a single run with a persistent state machin
 
 | Metric | Target / acceptance criterion |
 |--------|-------------------------------|
-| End-to-end reliability | 10 consecutive scripted testnet runs complete; failed-path tests are reported separately and must reach a defined terminal or recoverable state. |
-| Accounting reconciliation | At every checkpoint, total outstanding claims are no greater than contract USDC balance; no unexplained ledger difference after 10 runs. |
-| Contract tests | At least 90% line coverage, plus fuzz/invariant tests and at least one v4 integration/fork test. Coverage is not treated as proof of correctness. |
-| Opportunity check latency | Go/no-go response in under 5 seconds under documented local/testnet conditions; report p95 and test setup. |
-| Reproducibility | A reviewer can clone, install, configure, and reproduce the demo in under 30 minutes using the README, excluding third-party service outages. |
-| Simulation disclosure | Every screen and exported run record identifies simulated venue results and sandbox/testnet context. |
-| Recovery | Duplicate requests/events and a backend restart do not cause duplicate swaps, sales, settlements, or profit credits. |
+| Market quote | Eligible assets are discovered from active Binance USDC Spot pairs intersected with configured Unichain v4 pools. |
+| P/L display | Positive estimated net outcomes are green, negative outcomes are red, and the quote refreshes every 2.5 seconds. |
+| Wallet optionality | The simulator works without wallet connection; optional injected and configured WalletConnect sessions display address/network only. |
+| No-spend boundary | The paper flow contains no balance reads, signature requests, token approvals, transaction submissions, or exchange orders. |
+| Disclosure | Every value is identified as a live read-only estimate or an on-chain fact; no estimate is presented as a fill or realized profit. |
+| Reproducibility | A reviewer can install and run the demo using the README, excluding third-party service outages. |
 
 ---
 
 ## 4. Scope and terminology
 
-### MVP scope
+### Current market-estimator scope
+
+- Asset selection from Binance USDC Spot markets intersected with explicitly configured and validated Uniswap v4 PoolKeys.
+- Hypothetical USDC exact-input quote, Binance cumulative bid-depth sale estimate, configurable fee assumption, and P/L in integer base units. Positive values use green; negative values use red.
+- Optional injected-wallet or WalletConnect context on Unichain Sepolia. The wallet is not used as a funding source and no token balance or allowance is read.
+- Local estimate snapshots only. No transaction, exchange order, backend run, or claim is created.
+- Fail closed on missing pools, stale/unavailable source data, insufficient depth, and quote errors; never fall back to generated prices.
+
+### Experimental integration scope (not connected to the current UI)
 
 - One selected testnet, one supported USDC token, a bounded set of approved tokens and v4 pools, one hook configuration, one simulated venue, and one operator-controlled backend.
 - Exact-input v4 swaps with minimum-output enforcement and per-run limits.
@@ -114,7 +128,7 @@ The target network is an explicit go/no-go decision before implementation. Selec
 
 ### Happy path
 
-1. User selects an approved asset/pool and requests an opportunity check.
+1. User selects an approved asset/pool and requests an opportunity check. This remains a future integration workflow; the current UI uses simulated references and a local estimate.
 2. Opportunity engine fetches a v4 exact-input quote, reference price, venue simulation quote, costs, and candidate-size results.
 3. If the opportunity meets configured thresholds, the user confirms. The backend creates a unique run ID and persists CREATED before external side effects.
 4. Funding adapter requests sandbox USDC and polls/records the provider status. Execution is prohibited until the funding evidence and required on-chain balance are confirmed.

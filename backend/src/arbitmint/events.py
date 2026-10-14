@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any, Protocol
 
 from sqlalchemy import select
@@ -71,7 +72,7 @@ class ConfirmedEventListener:
         collected.sort(key=lambda item: (int(item[1]["blockNumber"]), int(item[1]["logIndex"])))
 
         inserted = 0
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         with self._sessions() as session, session.begin():
             cursor = session.get(ListenerCursor, (self._chain_id, self._address))
             if cursor is not None and cursor.next_block != from_block:
@@ -140,15 +141,15 @@ class ConfirmedEventListener:
                         "confirmed": True,
                     }
                     if event_name == "RunExecuted":
-                        run.amount_in = int(args["amountIn"])
+                        run.amount_in = Decimal(int(args["amountIn"]))
                         evidence["amount_out"] = int(args["amountOut"])
                         evidence["amount_in"] = int(args["amountIn"])
-                        run.acquired_amount = int(args["amountOut"])
+                        run.acquired_amount = Decimal(int(args["amountOut"]))
                     elif event_name == "RunSettled":
-                        run.simulated_proceeds = int(args["proceeds"])
-                        run.principal_recovered = int(args["principalRecovered"])
-                        run.shortfall = int(args["shortfall"])
-                        run.credited_amount = int(args["claimCredit"])
+                        run.simulated_proceeds = Decimal(int(args["proceeds"]))
+                        run.principal_recovered = Decimal(int(args["principalRecovered"]))
+                        run.shortfall = Decimal(int(args["shortfall"]))
+                        run.credited_amount = Decimal(int(args["claimCredit"]))
                         evidence.update(args)
                     if phase[current_state] < phase[target_state] or (
                         current_state == RunState.STUCK and target_state == RunState.SETTLED
@@ -187,7 +188,7 @@ class ConfirmedEventListener:
 
 def _hex(value: object) -> str:
     if hasattr(value, "hex"):
-        result = value.hex()
+        result = str(value.hex())
         return result if result.startswith("0x") else "0x" + result
     text = str(value)
     return text if text.startswith("0x") else "0x" + text

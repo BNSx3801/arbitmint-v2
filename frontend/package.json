@@ -11,13 +11,13 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@walletconnect/ethereum-provider": "^2.26.0",
     "next": "^15.5.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "viem": "^2.37.0",
-    "wagmi": "^2.16.0"
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.7",
     "@types/node": "^22.18.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",

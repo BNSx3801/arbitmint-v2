@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Protocol
-from uuid import uuid5, NAMESPACE_URL
+from uuid import NAMESPACE_URL, uuid5
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
@@ -54,7 +54,7 @@ class OnchainBalanceReader(Protocol):
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class FundingAdapter:

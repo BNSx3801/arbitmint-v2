@@ -4,22 +4,20 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     DateTime,
     ForeignKey,
     Index,
     Integer,
-    JSON,
     Numeric,
     String,
-    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from arbitmint.db import Base
-
 
 Amount = Numeric(78, 0, asdecimal=True)
 

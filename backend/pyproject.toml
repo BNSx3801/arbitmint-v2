@@ -1,17 +1,22 @@
 [project]
 name = "arbitmint-backend"
 version = "0.1.0"
-description = "Testnet-only ArbitMint orchestration backend"
+description = "ArbitMint read-only market quote and testnet orchestration backend"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115,<1",
+    "python-dotenv>=1.0,<2",
     "sqlalchemy>=2.0,<3",
+    "uvicorn>=0.30,<1",
     "web3>=7.0,<8",
 ]
 
 [build-system]
 requires = ["hatchling>=1.26,<2"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/arbitmint"]
 
 [dependency-groups]
 dev = [

@@ -1,16 +1,17 @@
 # ArbitMint
 
-ArbitMint is a testnet-only arbitrage orchestration MVP. Its intended workflow combines an on-chain Uniswap v4 swap, sandbox funding, and a simulated external venue. The venue simulation is not a real exchange trade, and its proceeds are not verified real-world trading profit. Estimates are not guarantees.
+ArbitMint is a no-trade cross-venue market estimator. Users select an eligible asset paired with USDC, enter a hypothetical buy size, and see an estimated outcome based on a read-only Uniswap v4 exact-input quote on Unichain Mainnet and Binance public Spot bid depth. It never submits a trade, requests token approvals, signs a transaction, or spends tokens. The optional wallet connection only displays address and Unichain Sepolia network context.
 
-The repository includes an initial Solidity contract slice for accounting, access control, direct v4 swaps, and a restricted hook. The backend now contains a persistent run state machine, sandbox funding adapter interface, deterministic venue simulator, confirmed event listener, and settlement coordinator. These orchestration modules are not yet wired into an HTTP API or verified as an end-to-end workflow. No deployment has been verified.
+The repository also contains an experimental Solidity contract slice and backend orchestration modules for a separate testnet workflow. They are not connected to this read-only quote path. Quote outputs are estimates, not fills or verified trading profit; Binance fees are configurable assumptions, and gas, transfers, bridging, withdrawals, and execution risk are excluded. The public Unichain RPC is rate-limited and intended for this MVP only.
 
-The selected target is Unichain Sepolia and the swap path is a direct PoolManager unlock/callback. PoolManager, token, pool, oracle, and sandbox-funding addresses and compatibility still require deployment verification before use.
+The optional wallet context is Unichain Sepolia (chain ID 1301). Quote requests are independent of that wallet and call Unichain Mainnet read-only (chain ID 130). Eligible assets require a full, independently verified v4 PoolKey configuration and an active Binance USDC spot pair. No pool keys are bundled; until they are configured, the eligible asset list is empty and quotes report unavailable.
 
 ## Scope and safety
 
 - Testnet only; no mainnet deployment or real user funds.
-- Sandbox funding only; sandbox funds have no real value.
-- External venue execution is simulated. Simulator outcomes must be identified as simulated.
+- Paper simulation only in the current frontend; no wallet funds or sandbox funds are used.
+- DEX and CEX reference prices are simulated locally, and venue execution is hypothetical. They are not live quotes or exchange fills.
+- Optional injected wallet and WalletConnect support are for testnet address/network context only. No signatures, approvals, or transactions are requested.
 - No real centralized-exchange execution, flash loans, multi-chain routing, or EigenLayer integration in the MVP.
 - Do not treat operator-reported or simulated values as independently verified external trading activity.
 
@@ -29,7 +30,7 @@ scripts/     Development and operational scripts
 
 ## Tooling
 
-Required tools: Foundry (`forge`), uv, Node.js, and pnpm. Install them using their official installation instructions. The package manifests and config files define the initial workspace. The pinned Solidity dependencies are installed in this checkout; backend/frontend dependencies and lockfiles are not yet installed or generated.
+Required tools: Foundry (`forge`), uv, Node.js, and pnpm. Install them using their official installation instructions. Workspace manifests and lockfiles are checked in. Install project dependencies before running checks.
 
 Install the pinned Solidity dependencies from the `contracts/` directory:
 
@@ -46,4 +47,4 @@ cd backend && uv sync && uv run pytest -q && uv run ruff check . && uv run mypy 
 cd frontend && pnpm install && pnpm typecheck && pnpm lint && pnpm test
 ```
 
-The funding adapter is provider-neutral and refuses to operate unless an explicitly injected sandbox provider declares its lifecycle verified. The PRD's Circle workflow gate is still unresolved, so there is no enabled Circle client. Settlement requires an operator transaction and preapproved testnet USDC; this is not automated by a verified funding/redemption integration. Never put credentials in source control; local `.env` files are ignored. Use `.env.example` only for names and non-secret placeholders.
+Run the read-only API with `cd backend && uv sync && uv run uvicorn arbitmint.app:app --reload`. Configure verified pools in `backend/.env` as documented in `backend/.env.example`; do not add unverified addresses or keys. Run the frontend with `cd frontend && pnpm install && pnpm dev`; open `http://localhost:3000`. Browser wallets are discovered through EIP-6963 with a legacy injected-provider fallback. WalletConnect QR requires a free public project ID in `frontend/.env.local` as `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`. This identifier is not a wallet secret. The quote UI requires the backend to be running at `NEXT_PUBLIC_MARKET_API_URL` (defaults to `http://127.0.0.1:8000`); wallet connection is unrelated to API fetch failures. See [`docs/DEMO.md`](docs/DEMO.md) for behavior and boundaries. Never put credentials or private keys in source control; local `.env` files are ignored.

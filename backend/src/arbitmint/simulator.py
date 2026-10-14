@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy.orm import Session, sessionmaker
@@ -173,7 +173,7 @@ class DeterministicVenueSimulator:
                 latency_ms=outcome.latency_ms,
                 configuration=outcome.configuration,
                 captured_inputs=outcome.captured_inputs,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             session.add(record)
             session.flush()
