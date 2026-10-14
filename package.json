@@ -1,0 +1,10 @@
+{
+  "name": "arbitmint",
+  "private": true,
+  "packageManager": "pnpm@10.18.3",
+  "scripts": {
+    "typecheck": "pnpm --filter @arbitmint/frontend typecheck",
+    "lint": "pnpm --filter @arbitmint/frontend lint",
+    "test": "pnpm --filter @arbitmint/frontend test"
+  }
+}
