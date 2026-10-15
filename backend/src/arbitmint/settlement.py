@@ -86,8 +86,6 @@ class SettlementCoordinator:
             simulator = session.get(SimulatorRecord, run_id)
             if simulator is None or simulator.status not in {"SUCCESS", "PARTIAL"}:
                 raise SettlementError("settlement requires a durable successful simulator result")
-            if run.state not in {RunState.SOLD.value, RunState.STUCK.value}:
-                raise SettlementError(f"cannot settle a run in {run.state}")
             proceeds = int(simulator.net_proceeds)
             if proceeds < 0 or proceeds > 2**128 - 1:
                 raise SettlementError("simulated proceeds are outside contract amount bounds")
@@ -117,6 +115,8 @@ class SettlementCoordinator:
                 if run.state != RunState.SETTLED.value:
                     raise SettlementError("completed settlement intent conflicts with persisted run state")
                 return evidence
+            if run.state not in {RunState.SOLD.value, RunState.STUCK.value}:
+                raise SettlementError(f"cannot settle a run in {run.state}")
             existing_tx_hash = intent.tx_hash
             if intent.status == "SUBMITTING" and existing_tx_hash is None:
                 raise SettlementUncertain(
@@ -145,7 +145,16 @@ class SettlementCoordinator:
             self._mark_intent(run_id, "PENDING", sanitized_error="SETTLEMENT_OUTCOME_UNCERTAIN")
             raise SettlementUncertain("settlement outcome is uncertain; reconcile before retry") from exc
 
-        self._validate_evidence(run, proceeds, evidence)
+        try:
+            self._validate_evidence(run, proceeds, evidence)
+        except SettlementUncertain:
+            self._mark_intent(run_id, "PENDING", sanitized_error="SETTLEMENT_NOT_CONFIRMED")
+            raise
+        except SettlementError:
+            self._mark_intent(
+                run_id, "PENDING", sanitized_error="SETTLEMENT_EVIDENCE_REQUIRES_RECONCILIATION"
+            )
+            raise
         self._complete_intent_and_transition(run_id, proceeds, evidence)
         return evidence
 
@@ -418,7 +427,7 @@ class Web3SettlementGateway:
     ) -> SettlementEvidence:
         del idempotency_key  # The durable transaction hash and nonce provide retry reconciliation.
         run_id_bytes = bytes.fromhex(chain_run_id.removeprefix("0x"))
-        if len(run_id_bytes) != 32 or not 0 < proceeds <= 2**128 - 1:
+        if len(run_id_bytes) != 32 or not 0 <= proceeds <= 2**128 - 1:
             raise SettlementError("invalid on-chain run ID or proceeds amount")
         operator_address = Web3.to_checksum_address(self.operator.address)
         arbitrageur_address = Web3.to_checksum_address(self.arbitrageur.address)
@@ -441,9 +450,10 @@ class Web3SettlementGateway:
                 except TimeoutError as exc:
                     raise TimeoutError("settlement transaction confirmation timed out") from exc
         else:
-            allowance = int(self.usdc.functions.allowance(operator_address, arbitrageur_address).call())
-            if allowance < proceeds:
-                raise SettlementRejected("operator must approve the exact settlement amount before settlement")
+            if proceeds:
+                allowance = int(self.usdc.functions.allowance(operator_address, arbitrageur_address).call())
+                if allowance < proceeds:
+                    raise SettlementRejected("operator must approve the exact settlement amount before settlement")
             nonce = int(self.web3.eth.get_transaction_count(operator_address, "pending"))
             function = self.arbitrageur.functions.settleRun(chain_run_id, proceeds)
             transaction = function.build_transaction(

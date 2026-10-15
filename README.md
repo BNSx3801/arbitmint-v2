@@ -10,7 +10,7 @@ The optional wallet context is Unichain Sepolia (chain ID 1301). Quote requests 
 
 - Testnet only; no mainnet deployment or real user funds.
 - Paper simulation only in the current frontend; no wallet funds or sandbox funds are used.
-- DEX and CEX reference prices are simulated locally, and venue execution is hypothetical. They are not live quotes or exchange fills.
+- DEX and CEX data are live, read-only quotes; the hypothetical venue sale is an estimate from Binance public bid depth, not an exchange fill.
 - Optional injected wallet and WalletConnect support are for testnet address/network context only. No signatures, approvals, or transactions are requested.
 - No real centralized-exchange execution, flash loans, multi-chain routing, or EigenLayer integration in the MVP.
 - Do not treat operator-reported or simulated values as independently verified external trading activity.
@@ -20,12 +20,10 @@ See [`docs/PRD.md`](docs/PRD.md) for requirements, acceptance criteria, trust as
 ## Repository layout
 
 ```text
-backend/     Python API and orchestration (uv)
+backend/     Python API and experimental orchestration modules (uv)
 contracts/   Solidity contracts and tests (Foundry)
-deployment/  Deployment manifests and configuration
 docs/        Product requirements and design notes
 frontend/    Next.js application (pnpm)
-scripts/     Development and operational scripts
 ```
 
 ## Tooling

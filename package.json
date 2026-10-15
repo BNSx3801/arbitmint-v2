@@ -6,5 +6,10 @@
     "typecheck": "pnpm --filter @arbitmint/frontend typecheck",
     "lint": "pnpm --filter @arbitmint/frontend lint",
     "test": "pnpm --filter @arbitmint/frontend test"
+  },
+  "pnpm": {
+    "overrides": {
+      "postcss": "8.5.30"
+    }
   }
 }

@@ -74,7 +74,6 @@ class PoolConfig:
     tick_spacing: int
     hooks: str
     hook_data: bytes = b""
-    max_book_age_seconds: int = 10
 
     @classmethod
     def from_json(cls, symbol: str, value: dict[str, Any]) -> PoolConfig:
@@ -133,7 +132,6 @@ class PoolConfig:
             tick_spacing=spacing,
             hooks=Web3.to_checksum_address(key["hooks"]),
             hook_data=bytes.fromhex(hook_data_hex[2:]),
-            max_book_age_seconds=int(value.get("max_book_age_seconds", 10)),
         )
 
     @property
@@ -157,7 +155,10 @@ def load_pools() -> dict[str, PoolConfig]:
 
 
 def _request_json(url: str, timeout: float = 8.0) -> Any:
-    request = urllib.request.Request(url, headers={"User-Agent": "ArbitMint/0.1 market-data"})
+    request = urllib.request.Request(
+        url,
+        headers={"User-Agent": "ArbitMint/0.1 market-data", "Cache-Control": "no-cache"},
+    )
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             return json.loads(response.read())
@@ -242,9 +243,6 @@ def _market_sale(pool: PoolConfig, token_amount: int) -> tuple[int, int, datetim
     received_at = datetime.now(UTC)
     if "bids" not in payload:
         raise QuoteUnavailable(f"Binance does not provide an order book for {pair}")
-    max_age = pool.max_book_age_seconds
-    if max_age < 1:
-        raise QuoteUnavailable("configured order-book freshness limit is invalid")
     token_remaining = Decimal(token_amount) / (10**pool.token_decimals)
     proceeds_usdc = Decimal(0)
     for price_text, quantity_text in payload["bids"]:
@@ -279,9 +277,7 @@ def get_quote(symbol: str, amount: str, pools: dict[str, PoolConfig] | None = No
     fee = gross_sale * taker_fee_bps // 10_000
     net_sale = gross_sale - fee
     pnl = net_sale - amount_in
-    age = (datetime.now(UTC) - book_received_at).total_seconds()
-    if age > pool.max_book_age_seconds:
-        raise QuoteUnavailable("Binance order-book data is stale")
+    fetch_age = max(0.0, (datetime.now(UTC) - book_received_at).total_seconds())
     return {
         "status": "available",
         "classification": "estimated",
@@ -307,7 +303,8 @@ def get_quote(symbol: str, amount: str, pools: dict[str, PoolConfig] | None = No
             "binance": "Binance Spot public order book",
             "binance_received_at": book_received_at.isoformat(),
             "binance_orderbook_update_id": orderbook_update_id,
-            "binance_freshness_seconds": age,
+            "binance_fetch_age_seconds": fetch_age,
+            "binance_source_timestamp_available": False,
             "uniswap": "Uniswap v4 Quoter on Unichain Mainnet",
             "unichain_block_number": block_number,
             "unichain_block_timestamp": block_time.isoformat(),

@@ -164,3 +164,5 @@ def test_quote_applies_configured_fee_and_never_claims_gas_included(
     assert result["estimated_pnl_usdc_base_units"] == "998000000"
     assert result["gas_cost_included"] is False
     assert result["classification"] == "estimated"
+    assert result["sources"]["binance_source_timestamp_available"] is False
+    assert result["sources"]["binance_fetch_age_seconds"] >= 0

@@ -12,12 +12,12 @@ Wallet connection is optional and only displays the connected address and networ
 
 - **Live read-only market estimate** combines a Uniswap v4 quote from Unichain Mainnet with a Binance public order book. Binance fee is an assumption; gas, transfer, withdrawal, bridge, and execution costs are excluded.
 - Eligible assets are the intersection of active Binance USDC Spot pairs and configured, verified Uniswap v4 pool keys. No default pool keys ship with the project; configure `UNISWAP_V4_POOLS_JSON` as described in `backend/.env.example`.
-- A failed or stale source makes the estimate unavailable; the UI never substitutes generated prices.
+- A failed source, stale Unichain block, or insufficient Binance bid depth makes the estimate unavailable; the UI never substitutes generated prices. Binance's REST depth response has no source event timestamp, so the displayed Binance time is when this service received the response and cannot prove upstream book freshness. Treat this as an unresolved freshness limitation, not a stale-book check.
 - “Market API unreachable” means the FastAPI service is not running or its URL/CORS configuration is incorrect; it is unrelated to wallet connection.
 - **Testnet · Unichain Sepolia** identifies the optional wallet context only.
 - **Paper mode · no token spend** means the page cannot submit swaps or spend user assets.
 - **Simulated market** identifies locally generated DEX/CEX reference prices; these are not live quotes.
-- **Estimate** marks the momentary P/L model. It refreshes with the simulated prices and is not a promise or executable opportunity.
+- **Estimate** marks the momentary P/L model. It refreshes with read-only market quotes and is not a promise or executable opportunity.
 - **Simulate this trade** captures a local snapshot; it is not a real venue result or persisted backend run.
 
 The P/L arithmetic uses integer base units. The current illustrative model deducts a fixed venue fee and estimated network cost; it does not model liquidity, slippage, exchange limits, withdrawal costs, or real-time execution risk. All market prices and resulting values are examples, not current quotes, wallet balances, or claims.

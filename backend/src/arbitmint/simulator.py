@@ -74,7 +74,11 @@ class DeterministicVenueSimulator:
             run = session.get(Run, run_id)
             if run is None:
                 raise KeyError(run_id)
-            if run.state not in {"EXECUTED", "STUCK"}:
+            replaying_stored_result = (
+                run.state == RunState.SOLD.value
+                and session.get(SimulatorRecord, run_id) is not None
+            )
+            if run.state not in {"EXECUTED", "STUCK"} and not replaying_stored_result:
                 raise ValueError("simulated sale requires a confirmed execution")
             if run.acquired_amount is None or int(run.acquired_amount) != quantity:
                 raise ValueError("simulator must use the confirmed acquired token quantity")

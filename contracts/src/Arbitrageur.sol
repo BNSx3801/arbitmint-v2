@@ -301,11 +301,13 @@ contract Arbitrageur is AccessControl, Pausable, ReentrancyGuard, IUnlockCallbac
     /// @dev `proceeds` is an operator-reported simulated venue result; token transfer proves funding only.
     function settleRun(bytes32 runId, uint128 proceeds) external onlyRole(OPERATOR_ROLE) nonReentrant {
         Run storage run = runs[runId];
-        if (run.state != RunState.Executed || proceeds == 0) revert InvalidState();
+        if (run.state != RunState.Executed) revert InvalidState();
         run.state = RunState.Settling;
-        uint256 beforeBalance = usdc.balanceOf(address(this));
-        usdc.safeTransferFrom(msg.sender, address(this), proceeds);
-        if (usdc.balanceOf(address(this)) - beforeBalance != proceeds) revert UnsupportedTransferTax();
+        if (proceeds != 0) {
+            uint256 beforeBalance = usdc.balanceOf(address(this));
+            usdc.safeTransferFrom(msg.sender, address(this), proceeds);
+            if (usdc.balanceOf(address(this)) - beforeBalance != proceeds) revert UnsupportedTransferTax();
+        }
 
         uint128 recoveredFromProceeds = proceeds < run.amountIn ? proceeds : run.amountIn;
         uint128 principalRecovered = run.principal - run.amountIn + recoveredFromProceeds;
