@@ -31,11 +31,15 @@ declare global {
   interface Window { ethereum?: WalletProvider }
 }
 
-const API_URL = (process.env.NEXT_PUBLIC_MARKET_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+const API_URL = (
+  process.env.NEXT_PUBLIC_MARKET_API_URL ||
+  (process.env.NODE_ENV === "development" ? "http://127.0.0.1:8000" : "")
+).replace(/\/$/, "");
 
 function apiError(error: unknown, action: string): string {
   if (error instanceof TypeError && error.message === "Failed to fetch") {
-    return `Market API at ${API_URL} is unreachable. Start the backend and check its CORS_ORIGINS setting; this is separate from wallet connection.`;
+    const endpoint = API_URL || "the same origin";
+    return `Market API at ${endpoint} is unreachable. Check the backend deployment; this is separate from wallet connection.`;
   }
   return error instanceof Error ? error.message : `${action} failed.`;
 }
